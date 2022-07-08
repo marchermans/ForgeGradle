@@ -66,7 +66,8 @@ public class DefaultDependencyFilter implements DependencyFilter {
             public Boolean call(final Object it) {
                 if (it instanceof ArtifactIdentifier) {
                     final ArtifactIdentifier identifier = (ArtifactIdentifier) it;
-                    return (dependency.getGroup() == null || Pattern.matches(dependency.getGroup(), identifier.getGroup())) &&
+                    return !identifier.isProject() &&
+                            (dependency.getGroup() == null || Pattern.matches(dependency.getGroup(), identifier.getGroup())) &&
                             (dependency.getName() == null || Pattern.matches(dependency.getName(), identifier.getName())) &&
                             (dependency.getVersion() == null || Pattern.matches(dependency.getVersion(), identifier.getVersion()));
                 }
@@ -77,7 +78,25 @@ public class DefaultDependencyFilter implements DependencyFilter {
     }
 
     @Override
-    public Spec<? super ArtifactIdentifier> dependency(Closure<Boolean> spec) {
+    public Spec<? super ArtifactIdentifier> project(Project project) {
+        return this.dependency(new Closure<Boolean>(null) {
+
+            @SuppressWarnings("ConstantConditions")
+            @Override
+            public Boolean call(final Object it) {
+                if (it instanceof ArtifactIdentifier) {
+                    final ArtifactIdentifier identifier = (ArtifactIdentifier) it;
+                    return identifier.isProject() &&
+                            (project.getName() == null || Pattern.matches(project.getName(), identifier.getName()));
+                }
+
+                return false;
+            }
+        });
+    }
+
+    @Override
+    public Spec<? super ArtifactIdentifier> matching(Closure<Boolean> spec) {
         return Specs.convertClosureToSpec(spec);
     }
 
@@ -89,7 +108,7 @@ public class DefaultDependencyFilter implements DependencyFilter {
     }
 
     @Override
-    public boolean isIncluded(ExternalModuleDependency dependency) {
+    public boolean isIncluded(ModuleDependency dependency) {
         return isIncluded(
                 new ArtifactIdentifier(dependency.getGroup(), dependency.getName(), dependency.getVersion())
         );

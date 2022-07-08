@@ -188,13 +188,25 @@ public abstract class JarJar extends Jar {
     private Metadata createMetadata() {
         return new Metadata(
                 this.configurations.stream().flatMap(config -> config.getAllDependencies().stream())
-                        .filter(ExternalModuleDependency.class::isInstance)
-                        .map(ExternalModuleDependency.class::cast)
                         .map(this::createDependencyMetadata)
                         .filter(Optional::isPresent)
                         .map(Optional::get)
                         .collect(Collectors.toList())
         );
+    }
+
+    Optional<ContainedJarMetadata> createDependencyMetadata(final Dependency dependency) {
+        if (dependency instanceof ExternalModuleDependency) {
+            final ExternalModuleDependency externalModuleDependency = (ExternalModuleDependency) dependency;
+            return createDependencyMetadata(externalModuleDependency);
+        }
+
+        if (dependency instanceof ProjectDependency) {
+            final ProjectDependency projectDependency = (ProjectDependency) dependency;
+            return createProjectMetadata(projectDependency);
+        }
+
+        return Optional.empty();
     }
 
     private Optional<ContainedJarMetadata> createDependencyMetadata(final ExternalModuleDependency dependency) {
@@ -227,9 +239,44 @@ public abstract class JarJar extends Jar {
         }
     }
 
-    private RuntimeException createInvalidVersionRangeException(final ExternalModuleDependency dependency, final Throwable cause) {
+    private Optional<ContainedJarMetadata> createProjectMetadata(final ProjectDependency dependency) {
+        if (!dependencyFilter.isIncluded(dependency)) {
+            return Optional.empty();
+        }
+
+        if (!isValidVersionRange(Objects.requireNonNull(getVersionRangeFrom(dependency)))) {
+            throw createInvalidVersionRangeException(dependency, null);
+        }
+
+        final Set<File> resolvedDependency = getResolvedDependency(dependency);
+        if (resolvedDependency.size() > 1) {
+            throw createInvalidProjectException(dependency, null);
+        }
+        try {
+            return Optional.of(new ContainedJarMetadata(
+                    new ContainedJarIdentifier(dependency.getGroup(), dependency.getName()),
+                    new ContainedVersion(
+                            VersionRange.createFromVersionSpec(getVersionRangeFrom(dependency)),
+                            new DefaultArtifactVersion(DeobfuscatingVersionUtils.adaptDeobfuscatedVersion(Objects.requireNonNull(dependency.getVersion())))
+                    ),
+                    "META-INF/jarjar/" + resolvedDependency.iterator().next().getName(),
+                    true
+            ));
+        } catch (InvalidVersionSpecificationException e) {
+            throw createInvalidVersionRangeException(dependency, e);
+        } catch (Exception e) {
+            throw createInvalidProjectException(dependency, e);
+        }
+    }
+
+    private RuntimeException createInvalidVersionRangeException(final ModuleDependency dependency, @Nullable final Throwable cause) {
         return new RuntimeException("The given version specification is invalid: " + getVersionRangeFrom(dependency)
                 + ". If you used gradle based range versioning like 2.+, convert this to a maven compatible format: [2.0,3.0).", cause);
+    }
+
+    private RuntimeException createInvalidProjectException(final ProjectDependency dependency, @Nullable final Throwable cause) {
+        return new RuntimeException("The project: " + dependency.getDependencyProject().getName()
+                + " resolves to multiple dependencies.", cause);
     }
 
     private String getVersionRangeFrom(final Dependency dependency) {
@@ -260,6 +307,10 @@ public abstract class JarJar extends Jar {
         }
 
         return deps.iterator().next();
+    }
+
+    private Set<File> getResolvedDependency(final SelfResolvingDependency dependency) {
+        return dependency.resolve();
     }
 
     private boolean isObfuscated(final Dependency dependency) {

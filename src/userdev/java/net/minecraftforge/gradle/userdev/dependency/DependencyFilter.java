@@ -22,10 +22,8 @@ package net.minecraftforge.gradle.userdev.dependency;
 
 import groovy.lang.Closure;
 import net.minecraftforge.artifactural.api.artifact.ArtifactIdentifier;
-import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.artifacts.ExternalModuleDependency;
-import org.gradle.api.artifacts.ResolvedDependency;
+import org.gradle.api.Project;
+import org.gradle.api.artifacts.*;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.specs.Spec;
 
@@ -74,12 +72,20 @@ public interface DependencyFilter {
     Spec<? super ArtifactIdentifier> dependency(Dependency dependency);
 
     /**
+     * Create a spec that matches the provided project on name.
+     *
+     * @param project The project to match.
+     * @return The spec that matches the dependency.
+     */
+    Spec<? super ArtifactIdentifier> project(Project project);
+
+    /**
      * Create a spec that matches the provided closure.
      *
      * @param spec The closure to invoke.
      * @return The spec that matches by invoking the closure.
      */
-    Spec<? super ArtifactIdentifier> dependency(Closure<Boolean> spec);
+    Spec<? super ArtifactIdentifier> matching(Closure<Boolean> spec);
 
     /**
      * Indicates if the given resolved dependency passes the filter.
@@ -95,7 +101,7 @@ public interface DependencyFilter {
      * @param dependency The dependency to check.
      * @return The result of the filter.
      */
-    boolean isIncluded(ExternalModuleDependency dependency);
+    boolean isIncluded(ModuleDependency dependency);
 
     /**
      * Checks if the given artifact identifier matches the dependency.
@@ -112,6 +118,7 @@ public interface DependencyFilter {
         private final String group;
         private final String name;
         private final String version;
+        private final boolean isProject;
 
         /**
          * Creates a new instance of the given artifact details.
@@ -124,6 +131,19 @@ public interface DependencyFilter {
             this.group = group;
             this.name = name;
             this.version = version;
+            this.isProject = false;
+        }
+
+        /**
+         * Creates a new instance of the given artifact details for a given project.
+         *
+         * @param name The name of the project.
+         */
+        public ArtifactIdentifier(final String name) {
+            this.name = name;
+            this.isProject = true;
+            this.group = "";
+            this.version = "";
         }
 
         /**
@@ -151,6 +171,15 @@ public interface DependencyFilter {
          */
         public String getVersion() {
             return version;
+        }
+
+        /**
+         * Indicates if this identifier references a project.
+         *
+         * @return If this reference project.
+         */
+        public boolean isProject() {
+            return isProject;
         }
     }
 }
