@@ -28,13 +28,18 @@ import net.minecraftforge.gradle.common.util.Utils;
 
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ExternalDependency;
+import org.gradle.api.artifacts.LenientConfiguration;
 import org.gradle.api.artifacts.ResolvedArtifact;
-import org.gradle.api.artifacts.ResolvedConfiguration;
-import org.gradle.api.artifacts.ResolvedDependency;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -48,7 +53,7 @@ public class DeobfuscatingRepo extends BaseRepo {
 
     //once resolved by gradle, will contain SRG-named artifacts for us to deobf
     private final Configuration origin;
-    private ResolvedConfiguration resolvedOrigin;
+    private LenientConfiguration resolvedOrigin;
     private final Deobfuscator deobfuscator;
 
     public DeobfuscatingRepo(Project project, Configuration origin, Deobfuscator deobfuscator) {
@@ -107,19 +112,33 @@ public class DeobfuscatingRepo extends BaseRepo {
         return deobfuscator.deobfPom(origFile, mapping, getArtifactPath(artifact, mapping));
     }
 
-    public ResolvedConfiguration getResolvedOrigin() {
+    public LenientConfiguration getResolvedOrigin() {
         synchronized (origin) {
             if (resolvedOrigin == null) {
-                resolvedOrigin = origin.getResolvedConfiguration();
+                preloadPOMsIntoOrigin();
+                resolvedOrigin = origin.getResolvedConfiguration().getLenientConfiguration();
             }
 
             return resolvedOrigin;
         }
     }
 
+    private void preloadPOMsIntoOrigin() {
+        final Set<String> dependencies = origin.getDependencies()
+                .stream()
+                .filter(ExternalDependency.class::isInstance)
+                .map(ExternalDependency.class::cast)
+                .map(d -> d.getGroup() + ":" + d.getName() + ":" + d.getVersion() + "@pom")
+                .collect(Collectors.toSet());
+
+        dependencies.forEach(dep -> origin.getDependencies().add(project.getDependencies().create(dep)));
+    }
+
     private Optional<File> findArtifactFile(Artifact artifact) {
-        Stream<ResolvedArtifact> deps = getResolvedOrigin().getResolvedArtifacts().stream();
-        return deps.filter(artifact.asArtifactMatcher()).map(ResolvedArtifact::getFile).filter(File::exists).findAny();
+        return getResolvedOrigin().getArtifacts().stream()
+                .filter(artifact.asArtifactMatcher())
+                .map(ResolvedArtifact::getFile)
+                .filter(File::exists).findAny();
     }
 
     @Nullable
