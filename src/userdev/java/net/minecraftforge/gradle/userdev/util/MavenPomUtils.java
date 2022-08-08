@@ -106,4 +106,8 @@ public class MavenPomUtils {
                 .map(Node.class::cast)
                 .collect(Collectors.toList());
     }
+
+    public static void addChild(final Node el, final String name, final String value) {
+        el.appendNode(name).setValue(value);
+    }
 }

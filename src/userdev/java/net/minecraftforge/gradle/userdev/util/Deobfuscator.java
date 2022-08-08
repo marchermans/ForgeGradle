@@ -94,9 +94,14 @@ public class Deobfuscator {
         if (!cache.isSame() || !output.exists()) {
             try {
                 Document pom = xmlParser.parse(original);
-                NodeList versionNodes = (NodeList) xPath.compile("/*[local-name()=\"project\"]/*[local-name()=\"version\"]").evaluate(pom, XPathConstants.NODESET);
-                if (versionNodes.getLength() > 0) {
-                    versionNodes.item(0).setTextContent(versionNodes.item(0).getTextContent() + "_mapped_" + mappings);
+                NodeList projectVersionNodes = (NodeList) xPath.compile("/*[local-name()=\"project\"]/*[local-name()=\"version\"]").evaluate(pom, XPathConstants.NODESET);
+                if (projectVersionNodes.getLength() > 0) {
+                    projectVersionNodes.item(0).setTextContent(projectVersionNodes.item(0).getTextContent() + "_mapped_" + mappings);
+                }
+
+                NodeList obfuscatedDependencyVersionNodes = (NodeList) xPath.compile("//version[../obfuscated='true']").evaluate(pom, XPathConstants.NODESET);
+                for (int i = 0; i < obfuscatedDependencyVersionNodes.getLength(); i++) {
+                    obfuscatedDependencyVersionNodes.item(i).setTextContent(obfuscatedDependencyVersionNodes.item(i).getTextContent() + "_mapped_" + mappings);
                 }
 
                 xmlTransformer.transform(new DOMSource(pom), new StreamResult(output));
