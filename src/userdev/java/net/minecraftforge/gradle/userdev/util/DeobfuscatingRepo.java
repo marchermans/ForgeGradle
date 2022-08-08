@@ -118,11 +118,7 @@ public class DeobfuscatingRepo extends BaseRepo {
     }
 
     private Optional<File> findArtifactFile(Artifact artifact) {
-        Stream<ResolvedDependency> deps = getResolvedOrigin().getFirstLevelModuleDependencies(artifact.asDependencySpec()).stream();
-        return deps.flatMap(
-                d -> d.getModuleArtifacts().stream()
-                        .filter(artifact.asArtifactMatcher())
-        ).map(ResolvedArtifact::getFile).filter(File::exists).findAny();
+        return getResolvedOrigin().getFiles(artifact.asDependencySpec()).stream().findAny();
     }
 
     @Nullable
