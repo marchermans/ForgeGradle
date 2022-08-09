@@ -59,35 +59,37 @@ public class DependencyManagementExtension extends GroovyObjectSupport {
 
     @SuppressWarnings({"ConstantConditions", "unchecked"})
     public MavenPublication component(MavenPublication mavenPublication) {
-        project.getTasks().withType(GenerateModuleMetadata.class).forEach(generateModuleMetadata -> generateModuleMetadata.setEnabled(false));
+        project.afterEvaluate(projectAfterEvaluate -> {
+            project.getTasks().withType(GenerateModuleMetadata.class).forEach(generateModuleMetadata -> generateModuleMetadata.setEnabled(false));
 
-        mavenPublication.suppressAllPomMetadataWarnings(); //We have weird handling of stuff and things when it comes to versions and other features. No need to spam the log when that happens.
+            mavenPublication.suppressAllPomMetadataWarnings(); //We have weird handling of stuff and things when it comes to versions and other features. No need to spam the log when that happens.
 
-        mavenPublication.pom(pom -> {
-            pom.withXml(xml -> {
-                final NodeList dependencies = MavenPomUtils.getDependenciesNodeList(xml);
+            mavenPublication.pom(pom -> {
+                pom.withXml(xml -> {
+                    final NodeList dependencies = MavenPomUtils.getDependenciesNodeList(xml);
 
-                final List<Node> dependenciesNodeList = (List<Node>) dependencies.stream()
-                        .filter(Node.class::isInstance)
-                        .map(Node.class::cast)
-                        .collect(Collectors.toList());
+                    List<Node> dependenciesNodeList = (List<Node>) dependencies.stream()
+                            .filter(Node.class::isInstance)
+                            .map(Node.class::cast)
+                            .collect(Collectors.toList());
 
-                dependenciesNodeList.stream()
-                        .filter(el -> MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "artifactId", "forge", "fmlonly")
-                                && MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "groupId", "net.minecraftforge"))
-                        .forEach(el -> el.parent().remove(el));
+                    dependenciesNodeList.stream()
+                            .filter(el -> MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "artifactId", "forge", "fmlonly")
+                                    && MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "groupId", "net.minecraftforge"))
+                            .forEach(el -> el.parent().remove(el));
 
-                dependenciesNodeList.stream()
-                        .filter(el -> MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "artifactId", "client", "server", "joined")
-                                && MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "groupId", "net.minecraft"))
-                        .forEach(el -> el.parent().remove(el));
+                    dependenciesNodeList.stream()
+                            .filter(el -> MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "artifactId", "client", "server", "joined")
+                                    && MavenPomUtils.hasChildWithText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "groupId", "net.minecraft"))
+                            .forEach(el -> el.parent().remove(el));
 
-                dependenciesNodeList.stream()
-                        .filter(el -> MavenPomUtils.hasChildWithContainedText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", "_mapped_"))
-                        .forEach(el -> {
-                            MavenPomUtils.setChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", DeobfuscatingVersionUtils.adaptDeobfuscatedVersion(MavenPomUtils.getChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version")));
-                            MavenPomUtils.addChild(el, "obfuscated", "true");
-                        });
+                    dependenciesNodeList.stream()
+                            .filter(el -> MavenPomUtils.hasChildWithContainedText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", "_mapped_"))
+                            .forEach(el -> {
+                                MavenPomUtils.setChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", DeobfuscatingVersionUtils.adaptDeobfuscatedVersion(MavenPomUtils.getChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version")));
+                                MavenPomUtils.addChild(el, "obfuscated", "true");
+                            });
+                });
             });
         });
 
