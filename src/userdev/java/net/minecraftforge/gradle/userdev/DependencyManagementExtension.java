@@ -86,7 +86,7 @@ public class DependencyManagementExtension extends GroovyObjectSupport {
                         .filter(el -> MavenPomUtils.hasChildWithContainedText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", "_mapped_"))
                         .forEach(el -> {
                             MavenPomUtils.setChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version", DeobfuscatingVersionUtils.adaptDeobfuscatedVersion(MavenPomUtils.getChildText(el, MavenPomUtils.MAVEN_POM_NAMESPACE + "version")));
-                            MavenPomUtils.addChild(el.parent(), "obfuscated", "true");
+                            MavenPomUtils.addChild(el, "obfuscated", "true");
                         });
             });
         });
